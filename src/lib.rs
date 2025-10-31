@@ -25,43 +25,37 @@ pub fn process_instruction(
         .split_first()
         .ok_or(ProgramError::InvalidInstructionData)?;
 
-    match LendingMarketInstruction::try_from(*discriminant)? {
-        LendingMarketInstruction::InitLendingMarket => {
-            use crate::instructions::init_lending_market::InitLendingMarketIxData;
+    use instructions::{market, LendingMarketInstruction::*};
 
-            if payload.len() != InitLendingMarketIxData::LEN {
-                return Err(ProgramError::InvalidInstructionData);
-            }
+    let instruction = instructions::LendingMarketInstruction::try_from(*discriminant)?;
 
-            process_init_lending_market(program_id, accounts, payload)
+    match instruction {
+        InitLendingMarket => {
+            ensure_payload_len::<market::InitLendingMarketIxData>(payload)?;
+            market::process_init_lending_market(program_id, accounts, payload)
         }
-        LendingMarketInstruction::SetEmergencyMode => {
-            use crate::instructions::set_emergency_mode::SetEmergencyModeIxData;
-
-            if payload.len() != SetEmergencyModeIxData::LEN {
-                return Err(ProgramError::InvalidInstructionData);
-            }
-
-            process_set_emergency_mode(program_id, accounts, payload)
+        SetEmergencyMode => {
+            ensure_payload_len::<market::SetEmergencyModeIxData>(payload)?;
+            market::process_set_emergency_mode(program_id, accounts, payload)
         }
-        LendingMarketInstruction::UpdateRiskCouncil => {
-            use crate::instructions::update_risk_council::UpdateRiskCouncilIxData;
-
-            if payload.len() != UpdateRiskCouncilIxData::LEN {
-                return Err(ProgramError::InvalidInstructionData);
-            }
-
-            process_update_risk_council(program_id, accounts, payload)
+        UpdateRiskCouncil => {
+            ensure_payload_len::<market::UpdateRiskCouncilIxData>(payload)?;
+            market::process_update_risk_council(program_id, accounts, payload)
         }
-        LendingMarketInstruction::UpdateLendingMarketOwner => {
-            use crate::instructions::update_lending_market_owner::UpdateLendingMarketOwnerIxData;
-
-            if payload.len() != UpdateLendingMarketOwnerIxData::LEN {
-                return Err(ProgramError::InvalidInstructionData);
-            }
-
-            process_update_lending_market_owner(program_id, accounts, payload)
+        UpdateLendingMarketOwner => {
+            ensure_payload_len::<market::UpdateLendingMarketOwnerIxData>(payload)?;
+            market::process_update_lending_market_owner(program_id, accounts, payload)
         }
-        _ => Err(ProgramError::InvalidInstructionData),
+    }
+}
+
+#[inline(always)]
+fn ensure_payload_len<T: crate::helper::utils::DataLen>(
+    payload: &[u8],
+) -> Result<(), ProgramError> {
+    if payload.len() == T::LEN {
+        Ok(())
+    } else {
+        Err(ProgramError::InvalidInstructionData)
     }
 }
