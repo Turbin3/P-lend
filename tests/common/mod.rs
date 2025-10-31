@@ -43,8 +43,28 @@ impl TestAccount {
         is_signer: bool,
         is_writable: bool,
     ) -> Self {
+        Self::new_with_capacity(
+            key,
+            owner,
+            lamports,
+            data_len,
+            data_len,
+            is_signer,
+            is_writable,
+        )
+    }
+
+    pub fn new_with_capacity(
+        key: Pubkey,
+        owner: Pubkey,
+        lamports: u64,
+        data_len: usize,
+        capacity: usize,
+        is_signer: bool,
+        is_writable: bool,
+    ) -> Self {
         let header = mem::size_of::<AccountLayout>();
-        let total_bytes = header + data_len;
+        let total_bytes = header + capacity;
         let words = (total_bytes + 7) / 8;
         let mut backing = vec![0u64; words];
         let header_ptr = backing.as_mut_ptr() as *mut AccountLayout;
@@ -85,7 +105,6 @@ pub fn serialize_struct<T>(value: &T) -> &[u8] {
 pub struct InitializedMarket {
     pub program_id: Pubkey,
     owner_pubkey: Pubkey,
-    owner_seed: Pubkey,
     pub risk_council_pubkey: Pubkey,
     owner_account: TestAccount,
     _rent_account: TestAccount,
@@ -107,10 +126,6 @@ impl InitializedMarket {
 
     pub fn owner_pubkey(&self) -> &Pubkey {
         &self.owner_pubkey
-    }
-
-    pub fn owner_seed(&self) -> &Pubkey {
-        &self.owner_seed
     }
 }
 
@@ -136,7 +151,15 @@ pub fn initialize_lending_market() -> InitializedMarket {
     let rent_bytes = serialize_struct(&rent).to_vec();
 
     let payer_account = TestAccount::new(owner_seed, system_program, 1_000_000_000, 0, true, true);
-    let market = TestAccount::new(market_pubkey, system_program, 0, 0, false, true);
+    let market = TestAccount::new_with_capacity(
+        market_pubkey,
+        system_program,
+        0,
+        0,
+        LendingMarketState::LEN,
+        false,
+        true,
+    );
     let rent_account = TestAccount::new(RENT_ID, RENT_ID, 0, rent_bytes.len(), false, false);
     {
         let info = rent_account.info();
@@ -174,7 +197,6 @@ pub fn initialize_lending_market() -> InitializedMarket {
     InitializedMarket {
         program_id,
         owner_pubkey: market_state.lending_market_owner,
-        owner_seed,
         risk_council_pubkey: market_state.risk_council,
         owner_account,
         market,
