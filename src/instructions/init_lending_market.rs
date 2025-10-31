@@ -5,13 +5,29 @@ use crate::helper::{
 };
 use crate::state::LendingMarketState;
 use pinocchio::{
-    account_info::AccountInfo,
-    instruction::Seed,
-    program_error::ProgramError,
-    pubkey::{self, Pubkey},
-    sysvars::rent::Rent,
-    ProgramResult,
+    account_info::AccountInfo, instruction::Seed, program_error::ProgramError, pubkey::Pubkey,
+    sysvars::rent::Rent, ProgramResult,
 };
+
+#[cfg(not(target_arch = "bpf"))]
+fn find_program_address(
+    seeds: &[&[u8]],
+    program_id: &Pubkey,
+) -> Result<(Pubkey, u8), ProgramError> {
+    use solana_sdk::pubkey::Pubkey as SolPubkey;
+
+    let solana_program_id = SolPubkey::new_from_array(*program_id);
+    let (derived, bump) = SolPubkey::find_program_address(seeds, &solana_program_id);
+    Ok((derived.to_bytes(), bump))
+}
+
+#[cfg(target_arch = "bpf")]
+fn find_program_address(
+    seeds: &[&[u8]],
+    program_id: &Pubkey,
+) -> Result<(Pubkey, u8), ProgramError> {
+    Ok(pinocchio::pubkey::find_program_address(seeds, program_id))
+}
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -50,7 +66,7 @@ pub fn process_init_lending_market(
         LendingMarketState::SEED.as_bytes(),
         ix_data.lending_market_owner.as_ref(),
     ];
-    let (expected_market_key, bump) = pubkey::find_program_address(seeds, program_id);
+    let (expected_market_key, bump) = find_program_address(seeds, program_id)?;
 
     if expected_market_key != *lending_market.key() {
         return Err(ProgramError::InvalidSeeds);

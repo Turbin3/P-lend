@@ -1,4 +1,4 @@
-use pinocchio::{account_info::AccountInfo, program_error::ProgramError, ProgramResult};
+use pinocchio::{account_info::AccountInfo, ProgramResult};
 
 #[inline(always)]
 pub fn close_account(account: &AccountInfo, destination: &AccountInfo) -> ProgramResult {

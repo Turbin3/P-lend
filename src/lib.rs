@@ -1,6 +1,6 @@
-use instructions::*;
-use pinocchio::{account_info::AccountInfo, pubkey::Pubkey, ProgramResult};
-use state::*;
+use pinocchio::{
+    account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
+};
 
 pub mod helper;
 pub mod instructions;
@@ -17,7 +17,24 @@ pub fn process_instruction(
     accounts: &[AccountInfo],
     data: &[u8],
 ) -> ProgramResult {
-    assert_eq!(program_id, &ID);
+    if program_id != &ID {
+        return Err(ProgramError::IncorrectProgramId);
+    }
 
-    Ok(())
+    let (discriminant, payload) = data
+        .split_first()
+        .ok_or(ProgramError::InvalidInstructionData)?;
+
+    match LendingMarketInstruction::try_from(*discriminant)? {
+        LendingMarketInstruction::InitLendingMarket => {
+            use crate::instructions::init_lending_market::InitLendingMarketIxData;
+
+            if payload.len() != InitLendingMarketIxData::LEN {
+                return Err(ProgramError::InvalidInstructionData);
+            }
+
+            process_init_lending_market(program_id, accounts, payload)
+        }
+        _ => Err(ProgramError::InvalidInstructionData),
+    }
 }
