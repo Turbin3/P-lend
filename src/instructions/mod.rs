@@ -25,6 +25,7 @@ impl TryFrom<u8> for LendingMarketInstruction {
             1 => Ok(LendingMarketInstruction::UpdateLendingMarketOwner),
             2 => Ok(LendingMarketInstruction::SetEmergencyMode),
             3 => Ok(LendingMarketInstruction::UpdateRiskCouncil),
+            _ => Err(ProgramError::InvalidInstructionData),
         }
     }
 }

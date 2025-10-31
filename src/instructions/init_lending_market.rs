@@ -9,7 +9,7 @@ use pinocchio::{
     instruction::Seed,
     program_error::ProgramError,
     pubkey::{self, Pubkey},
-    sysvars::{rent::Rent, Sysvar},
+    sysvars::rent::Rent,
     ProgramResult,
 };
 
