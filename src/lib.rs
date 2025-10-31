@@ -35,6 +35,15 @@ pub fn process_instruction(
 
             process_init_lending_market(program_id, accounts, payload)
         }
+        LendingMarketInstruction::SetEmergencyMode => {
+            use crate::instructions::set_emergency_mode::SetEmergencyModeIxData;
+
+            if payload.len() != SetEmergencyModeIxData::LEN {
+                return Err(ProgramError::InvalidInstructionData);
+            }
+
+            process_set_emergency_mode(program_id, accounts, payload)
+        }
         _ => Err(ProgramError::InvalidInstructionData),
     }
 }

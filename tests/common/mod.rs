@@ -1,49 +1,163 @@
-use litesvm::{
-    types::{FailedTransactionMetadata, TransactionMetadata},
-    LiteSVM,
-};
+use core::{mem, ptr};
+use std::str::FromStr;
 
-use solana_sdk::{
-    instruction::{AccountMeta, Instruction},
-    message::{v0, VersionedMessage},
+use p_lend::{
+    helper::utils::try_from_account_info_mut,
+    instructions::init_lending_market::{process_init_lending_market, InitLendingMarketIxData},
+    state::LendingMarketState,
+    StateDefinition, ID,
+};
+use pinocchio::{
+    account_info::AccountInfo,
     pubkey::Pubkey,
-    signature::Keypair,
-    signer::Signer,
-    system_program,
-    sysvar::rent,
-    transaction::VersionedTransaction,
+    sysvars::rent::{Rent as PinRent, RENT_ID},
 };
+use solana_sdk::pubkey::Pubkey as SolPubkey;
 
-pub fn setup_svm_and_program() -> (LiteSVM, Keypair, Keypair, Pubkey) {
-    let mut svm = LiteSVM::new();
-    let fee_payer = Keypair::new();
-
-    svm.airdrop(&fee_payer.pubkey(), 100000000).unwrap();
-
-    let program_id = Pubkey::from(ID);
-    svm.add_program_from_file(program_id, "./target/deploy/pinocchio_multisig.so")
-        .unwrap();
-
-    let second_keypair = Keypair::new();
-    svm.airdrop(&second_keypair.pubkey(), 1000000000).unwrap();
-
-    (svm, fee_payer, second_keypair, program_id)
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct AccountLayout {
+    borrow_state: u8,
+    is_signer: u8,
+    is_writable: u8,
+    executable: u8,
+    resize_delta: i32,
+    key: Pubkey,
+    owner: Pubkey,
+    lamports: u64,
+    data_len: u64,
 }
 
-pub fn build_and_send_transaction(
-    svm: &mut LiteSVM,
-    fee_payer: &Keypair,
-    instruction: Vec<Instruction>,
-) -> Result<TransactionMetadata, FailedTransactionMetadata> {
-    let msg = v0::Message::try_compile(
-        &fee_payer.pubkey(),
-        &instruction,
-        &[],
-        svm.latest_blockhash(),
-    )
-    .unwrap();
+#[derive(Clone)]
+pub struct TestAccount {
+    info: AccountInfo,
+    _backing: Vec<u64>,
+}
 
-    let tx = VersionedTransaction::try_new(VersionedMessage::V0(msg), &[&fee_payer]).unwrap();
+impl TestAccount {
+    pub fn new(
+        key: Pubkey,
+        owner: Pubkey,
+        lamports: u64,
+        data_len: usize,
+        is_signer: bool,
+        is_writable: bool,
+    ) -> Self {
+        let header = mem::size_of::<AccountLayout>();
+        let total_bytes = header + data_len;
+        let words = (total_bytes + 7) / 8;
+        let mut backing = vec![0u64; words];
+        let header_ptr = backing.as_mut_ptr() as *mut AccountLayout;
 
-    svm.send_transaction(tx)
+        unsafe {
+            ptr::write(
+                header_ptr,
+                AccountLayout {
+                    borrow_state: u8::MAX,
+                    is_signer: is_signer as u8,
+                    is_writable: is_writable as u8,
+                    executable: 0,
+                    resize_delta: 0,
+                    key,
+                    owner,
+                    lamports,
+                    data_len: data_len as u64,
+                },
+            );
+        }
+
+        let info = unsafe { mem::transmute::<*mut AccountLayout, AccountInfo>(header_ptr) };
+        Self {
+            info,
+            _backing: backing,
+        }
+    }
+
+    pub fn info(&self) -> AccountInfo {
+        self.info
+    }
+}
+
+pub fn serialize_struct<T>(value: &T) -> &[u8] {
+    unsafe { core::slice::from_raw_parts((value as *const T) as *const u8, mem::size_of::<T>()) }
+}
+
+pub struct InitializedMarket {
+    pub program_id: Pubkey,
+    _owner_pubkey: Pubkey,
+    pub risk_council_pubkey: Pubkey,
+    _owner_account: TestAccount,
+    _rent_account: TestAccount,
+    pub market: TestAccount,
+    pub risk_council_account: TestAccount,
+}
+
+impl InitializedMarket {
+    pub fn market_state(&self) -> LendingMarketState {
+        unsafe {
+            let info = self.market.info();
+            *try_from_account_info_mut::<LendingMarketState>(&info).unwrap()
+        }
+    }
+}
+
+pub fn initialize_lending_market() -> InitializedMarket {
+    let program_id = ID;
+    let owner_pubkey = [1u8; 32];
+    let risk_pubkey = [2u8; 32];
+
+    let system_program = system_program();
+
+    let (market_pubkey, _bump) = SolPubkey::find_program_address(
+        &[LendingMarketState::SEED.as_bytes(), owner_pubkey.as_slice()],
+        &SolPubkey::new_from_array(program_id),
+    );
+    let market_pubkey = market_pubkey.to_bytes();
+
+    #[allow(deprecated)]
+    let rent = PinRent {
+        lamports_per_byte_year: 3_480,
+        exemption_threshold: 2.0,
+        burn_percent: 50,
+    };
+    let rent_bytes = serialize_struct(&rent).to_vec();
+
+    let owner_account =
+        TestAccount::new(owner_pubkey, system_program, 1_000_000_000, 0, true, true);
+    let market = TestAccount::new(market_pubkey, system_program, 0, 0, false, true);
+    let rent_account = TestAccount::new(RENT_ID, RENT_ID, 0, rent_bytes.len(), false, false);
+    {
+        let info = rent_account.info();
+        let mut data = info.try_borrow_mut_data().unwrap();
+        data.copy_from_slice(&rent_bytes);
+    }
+
+    let risk_council_account = TestAccount::new(risk_pubkey, system_program, 0, 0, true, false);
+
+    let ix_data = InitLendingMarketIxData {
+        lending_market_owner: owner_pubkey,
+        quote_currency: [42u8; 32],
+        risk_council: risk_pubkey,
+    };
+
+    let ix_bytes = serialize_struct(&ix_data).to_vec();
+    let accounts = [owner_account.info(), market.info(), rent_account.info()];
+
+    process_init_lending_market(&program_id, &accounts, &ix_bytes).unwrap();
+
+    InitializedMarket {
+        program_id,
+        _owner_pubkey: owner_pubkey,
+        risk_council_pubkey: risk_pubkey,
+        _owner_account: owner_account,
+        market,
+        _rent_account: rent_account,
+        risk_council_account,
+    }
+}
+
+pub fn system_program() -> Pubkey {
+    SolPubkey::from_str("11111111111111111111111111111111")
+        .unwrap()
+        .to_bytes()
 }
