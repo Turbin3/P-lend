@@ -44,6 +44,15 @@ pub fn process_instruction(
 
             process_set_emergency_mode(program_id, accounts, payload)
         }
+        LendingMarketInstruction::UpdateRiskCouncil => {
+            use crate::instructions::update_risk_council::UpdateRiskCouncilIxData;
+
+            if payload.len() != UpdateRiskCouncilIxData::LEN {
+                return Err(ProgramError::InvalidInstructionData);
+            }
+
+            process_update_risk_council(program_id, accounts, payload)
+        }
         _ => Err(ProgramError::InvalidInstructionData),
     }
 }

@@ -84,9 +84,9 @@ pub fn serialize_struct<T>(value: &T) -> &[u8] {
 
 pub struct InitializedMarket {
     pub program_id: Pubkey,
-    _owner_pubkey: Pubkey,
+    owner_pubkey: Pubkey,
     pub risk_council_pubkey: Pubkey,
-    _owner_account: TestAccount,
+    owner_account: TestAccount,
     _rent_account: TestAccount,
     pub market: TestAccount,
     pub risk_council_account: TestAccount,
@@ -99,17 +99,25 @@ impl InitializedMarket {
             *try_from_account_info_mut::<LendingMarketState>(&info).unwrap()
         }
     }
+
+    pub fn owner_account_info(&self) -> AccountInfo {
+        self.owner_account.info()
+    }
+
+    pub fn owner_pubkey(&self) -> &Pubkey {
+        &self.owner_pubkey
+    }
 }
 
 pub fn initialize_lending_market() -> InitializedMarket {
     let program_id = ID;
-    let owner_pubkey = [1u8; 32];
-    let risk_pubkey = [2u8; 32];
-
     let system_program = system_program();
 
+    let owner_seed = [1u8; 32];
+    let risk_seed = [2u8; 32];
+
     let (market_pubkey, _bump) = SolPubkey::find_program_address(
-        &[LendingMarketState::SEED.as_bytes(), owner_pubkey.as_slice()],
+        &[LendingMarketState::SEED.as_bytes(), owner_seed.as_slice()],
         &SolPubkey::new_from_array(program_id),
     );
     let market_pubkey = market_pubkey.to_bytes();
@@ -122,8 +130,7 @@ pub fn initialize_lending_market() -> InitializedMarket {
     };
     let rent_bytes = serialize_struct(&rent).to_vec();
 
-    let owner_account =
-        TestAccount::new(owner_pubkey, system_program, 1_000_000_000, 0, true, true);
+    let payer_account = TestAccount::new(owner_seed, system_program, 1_000_000_000, 0, true, true);
     let market = TestAccount::new(market_pubkey, system_program, 0, 0, false, true);
     let rent_account = TestAccount::new(RENT_ID, RENT_ID, 0, rent_bytes.len(), false, false);
     {
@@ -132,24 +139,38 @@ pub fn initialize_lending_market() -> InitializedMarket {
         data.copy_from_slice(&rent_bytes);
     }
 
-    let risk_council_account = TestAccount::new(risk_pubkey, system_program, 0, 0, true, false);
-
     let ix_data = InitLendingMarketIxData {
-        lending_market_owner: owner_pubkey,
+        lending_market_owner: owner_seed,
         quote_currency: [42u8; 32],
-        risk_council: risk_pubkey,
+        risk_council: risk_seed,
     };
 
     let ix_bytes = serialize_struct(&ix_data).to_vec();
-    let accounts = [owner_account.info(), market.info(), rent_account.info()];
+    let accounts = [payer_account.info(), market.info(), rent_account.info()];
 
     process_init_lending_market(&program_id, &accounts, &ix_bytes).unwrap();
 
+    let market_state = unsafe {
+        let info = market.info();
+        *try_from_account_info_mut::<LendingMarketState>(&info).unwrap()
+    };
+
+    let owner_account = TestAccount::new(
+        market_state.lending_market_owner,
+        system_program,
+        1_000_000_000,
+        0,
+        true,
+        true,
+    );
+    let risk_council_account =
+        TestAccount::new(market_state.risk_council, system_program, 0, 0, true, false);
+
     InitializedMarket {
         program_id,
-        _owner_pubkey: owner_pubkey,
-        risk_council_pubkey: risk_pubkey,
-        _owner_account: owner_account,
+        owner_pubkey: market_state.lending_market_owner,
+        risk_council_pubkey: market_state.risk_council,
+        owner_account,
         market,
         _rent_account: rent_account,
         risk_council_account,
