@@ -2,7 +2,8 @@ use pinocchio::pubkey::Pubkey;
 
 use crate::helper::{account_init::StateDefinition, utils::DataLen};
 
-
+#[repr(C)]
+#[derive(Clone, Copy)]
 pub struct LendingMarketState {
     pub version: u64,
     pub lending_market_owner: Pubkey,
@@ -12,12 +13,20 @@ pub struct LendingMarketState {
 }
 
 impl StateDefinition for LendingMarketState {
-    const LEN: usize = 100;
+    const LEN: usize = core::mem::size_of::<Self>();
     const SEED: &'static str = "lending_market";
 }
 
+impl DataLen for LendingMarketState {
+    const LEN: usize = <Self as StateDefinition>::LEN;
+}
+
 impl LendingMarketState {
-    pub fn new(lending_market_owner: Pubkey, quote_currency: [u8; 32], risk_council: Pubkey) -> Self {
+    pub fn new(
+        lending_market_owner: Pubkey,
+        quote_currency: [u8; 32],
+        risk_council: Pubkey,
+    ) -> Self {
         Self {
             version: 0,
             lending_market_owner,

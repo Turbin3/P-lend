@@ -1,13 +1,12 @@
 pub mod init_lending_market;
-pub mod update_lending_market_owner;
 pub mod set_emergency_mode;
+pub mod update_lending_market_owner;
 pub mod update_risk_council;
-
 
 pub use init_lending_market::*;
 use pinocchio::program_error::ProgramError;
-pub use update_lending_market_owner::*;
 pub use set_emergency_mode::*;
+pub use update_lending_market_owner::*;
 pub use update_risk_council::*;
 
 pub enum LendingMarketInstruction {

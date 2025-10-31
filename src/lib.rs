@@ -1,17 +1,16 @@
 use instructions::*;
-use pinocchio::{ProgramResult, account_info::AccountInfo, pubkey::Pubkey};
+use pinocchio::{account_info::AccountInfo, pubkey::Pubkey, ProgramResult};
 use state::*;
 
+pub mod helper;
 pub mod instructions;
 pub mod state;
-pub mod helper;
 
+pub use helper::*;
 pub use instructions::*;
 pub use state::*;
-pub use helper::*;
 
 pinocchio_pubkey::declare_id!("4ibrEMW5F6hKnkW4jVedswYv6H6VtwPN6ar6dvXDN1nT");
-
 
 pub fn process_instruction(
     program_id: &Pubkey,
@@ -19,7 +18,6 @@ pub fn process_instruction(
     data: &[u8],
 ) -> ProgramResult {
     assert_eq!(program_id, &ID);
-
 
     Ok(())
 }
