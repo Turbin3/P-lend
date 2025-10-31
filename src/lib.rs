@@ -53,6 +53,15 @@ pub fn process_instruction(
 
             process_update_risk_council(program_id, accounts, payload)
         }
+        LendingMarketInstruction::UpdateLendingMarketOwner => {
+            use crate::instructions::update_lending_market_owner::UpdateLendingMarketOwnerIxData;
+
+            if payload.len() != UpdateLendingMarketOwnerIxData::LEN {
+                return Err(ProgramError::InvalidInstructionData);
+            }
+
+            process_update_lending_market_owner(program_id, accounts, payload)
+        }
         _ => Err(ProgramError::InvalidInstructionData),
     }
 }

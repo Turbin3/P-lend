@@ -85,6 +85,7 @@ pub fn serialize_struct<T>(value: &T) -> &[u8] {
 pub struct InitializedMarket {
     pub program_id: Pubkey,
     owner_pubkey: Pubkey,
+    owner_seed: Pubkey,
     pub risk_council_pubkey: Pubkey,
     owner_account: TestAccount,
     _rent_account: TestAccount,
@@ -106,6 +107,10 @@ impl InitializedMarket {
 
     pub fn owner_pubkey(&self) -> &Pubkey {
         &self.owner_pubkey
+    }
+
+    pub fn owner_seed(&self) -> &Pubkey {
+        &self.owner_seed
     }
 }
 
@@ -169,6 +174,7 @@ pub fn initialize_lending_market() -> InitializedMarket {
     InitializedMarket {
         program_id,
         owner_pubkey: market_state.lending_market_owner,
+        owner_seed,
         risk_council_pubkey: market_state.risk_council,
         owner_account,
         market,

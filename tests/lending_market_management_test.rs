@@ -3,6 +3,9 @@ mod common;
 use common::{initialize_lending_market, serialize_struct};
 use p_lend::instructions::{
     set_emergency_mode::{process_set_emergency_mode, SetEmergencyModeIxData},
+    update_lending_market_owner::{
+        process_update_lending_market_owner, UpdateLendingMarketOwnerIxData,
+    },
     update_risk_council::{process_update_risk_council, UpdateRiskCouncilIxData},
 };
 
@@ -73,5 +76,36 @@ fn test_update_risk_council_requires_owner() {
 
     let err = process_update_risk_council(&ctx.program_id, &accounts, serialize_struct(&ix_data))
         .expect_err("only owner may update risk council");
+    assert_eq!(err, pinocchio::program_error::ProgramError::IllegalOwner);
+}
+
+#[test]
+fn test_update_lending_market_owner() {
+    let ctx = initialize_lending_market();
+    let new_owner = [33u8; 32];
+
+    let ix_data = UpdateLendingMarketOwnerIxData { new_owner };
+    let accounts = [ctx.owner_account_info(), ctx.market.info()];
+
+    process_update_lending_market_owner(&ctx.program_id, &accounts, serialize_struct(&ix_data))
+        .unwrap();
+
+    let state = ctx.market_state();
+    assert_eq!(state.lending_market_owner, new_owner);
+}
+
+#[test]
+fn test_update_lending_market_owner_requires_owner() {
+    let ctx = initialize_lending_market();
+    let new_owner = [44u8; 32];
+
+    let ix_data = UpdateLendingMarketOwnerIxData { new_owner };
+    let unauthorized =
+        common::TestAccount::new([8u8; 32], common::system_program(), 0, 0, true, false);
+    let accounts = [unauthorized.info(), ctx.market.info()];
+
+    let err =
+        process_update_lending_market_owner(&ctx.program_id, &accounts, serialize_struct(&ix_data))
+            .expect_err("only current owner may transfer ownership");
     assert_eq!(err, pinocchio::program_error::ProgramError::IllegalOwner);
 }
