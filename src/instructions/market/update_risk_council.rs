@@ -1,14 +1,14 @@
 use crate::helper::{
     account_checks::check_signer,
-    utils::{load_ix_data, try_from_account_info_mut, DataLen},
+    utils::{try_from_account_info_mut, DataLen},
 };
 use crate::state::LendingMarketState;
 use pinocchio::{
     account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
 };
-
+use bytemuck::{Pod, Zeroable};
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Pod, Zeroable)]
 pub struct UpdateRiskCouncilIxData {
     pub new_risk_council: Pubkey,
 }
@@ -28,8 +28,7 @@ pub fn process_update_risk_council(
 
     check_signer(owner)?;
 
-    let ix_data = unsafe { load_ix_data::<UpdateRiskCouncilIxData>(data)? };
-
+    let ix_data = bytemuck::from_bytes::<UpdateRiskCouncilIxData>(&data[..UpdateRiskCouncilIxData::LEN]);
     unsafe {
         let state = try_from_account_info_mut::<LendingMarketState>(lending_market)?;
 

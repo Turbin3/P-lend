@@ -1,16 +1,16 @@
 use crate::helper::{
     account_checks::check_signer,
-    utils::{load_ix_data, try_from_account_info_mut, DataLen},
+    utils::{try_from_account_info_mut, DataLen},
 };
 use crate::state::LendingMarketState;
 use pinocchio::{
     account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
 };
-
+use bytemuck::{Pod, Zeroable};
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy,Pod,Zeroable)]
 pub struct SetEmergencyModeIxData {
-    pub enable: bool,
+    pub enable: u8,
 }
 
 impl DataLen for SetEmergencyModeIxData {
@@ -28,7 +28,7 @@ pub fn process_set_emergency_mode(
 
     check_signer(authority)?;
 
-    let ix_data = unsafe { load_ix_data::<SetEmergencyModeIxData>(data)? };
+    let ix_data = bytemuck::from_bytes::<SetEmergencyModeIxData>(&data[..SetEmergencyModeIxData::LEN]);
 
     unsafe {
         let state = try_from_account_info_mut::<LendingMarketState>(lending_market)?;
@@ -38,7 +38,7 @@ pub fn process_set_emergency_mode(
             return Err(ProgramError::IllegalOwner);
         }
 
-        state.emergency_mode = ix_data.enable;
+        state.emergency_mode = ix_data.enable as u8;
     }
 
     Ok(())

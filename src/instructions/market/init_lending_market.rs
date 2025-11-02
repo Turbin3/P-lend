@@ -1,7 +1,7 @@
 use crate::helper::{
     account_checks::check_signer,
     account_init::{create_pda_account, StateDefinition},
-    utils::{load_ix_data, try_from_account_info_mut, DataLen},
+    utils::{try_from_account_info_mut, DataLen},
 };
 use crate::state::LendingMarketState;
 use pinocchio::{
@@ -9,28 +9,20 @@ use pinocchio::{
     sysvars::rent::Rent, ProgramResult,
 };
 
+use bytemuck::{Pod, Zeroable};
+
+
 #[cfg(not(target_arch = "bpf"))]
 fn find_program_address(
     seeds: &[&[u8]],
-    program_id: &Pubkey,
 ) -> Result<(Pubkey, u8), ProgramError> {
-    use solana_sdk::pubkey::Pubkey as SolPubkey;
+    use pinocchio::pubkey;
 
-    let solana_program_id = SolPubkey::new_from_array(*program_id);
-    let (derived, bump) = SolPubkey::find_program_address(seeds, &solana_program_id);
-    Ok((derived.to_bytes(), bump))
+    let (derived, bump) = pubkey::find_program_address(seeds, &crate::ID);
+    Ok((derived, bump))
 }
-
-#[cfg(target_arch = "bpf")]
-fn find_program_address(
-    seeds: &[&[u8]],
-    program_id: &Pubkey,
-) -> Result<(Pubkey, u8), ProgramError> {
-    Ok(pinocchio::pubkey::find_program_address(seeds, program_id))
-}
-
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy,Pod,Zeroable)]
 pub struct InitLendingMarketIxData {
     pub lending_market_owner: Pubkey,
     pub quote_currency: [u8; 32],
@@ -42,7 +34,6 @@ impl DataLen for InitLendingMarketIxData {
 }
 
 pub fn process_init_lending_market(
-    program_id: &Pubkey,
     accounts: &[AccountInfo],
     data: &[u8],
 ) -> ProgramResult {
@@ -56,7 +47,7 @@ pub fn process_init_lending_market(
         return Err(ProgramError::AccountAlreadyInitialized);
     }
 
-    let ix_data = unsafe { load_ix_data::<InitLendingMarketIxData>(data)? };
+    let ix_data = bytemuck::from_bytes::<InitLendingMarketIxData>(&data[..InitLendingMarketIxData::LEN]);
 
     if lending_market_owner.key() != &ix_data.lending_market_owner {
         return Err(ProgramError::InvalidAccountData);
@@ -66,7 +57,7 @@ pub fn process_init_lending_market(
         LendingMarketState::SEED.as_bytes(),
         ix_data.lending_market_owner.as_ref(),
     ];
-    let (expected_market_key, bump) = find_program_address(seeds, program_id)?;
+    let (expected_market_key, bump) = find_program_address(seeds)?;
 
     if expected_market_key != *lending_market.key() {
         return Err(ProgramError::InvalidSeeds);

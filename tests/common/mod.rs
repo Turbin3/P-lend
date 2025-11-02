@@ -136,11 +136,10 @@ pub fn initialize_lending_market() -> InitializedMarket {
     let owner_seed = [1u8; 32];
     let risk_seed = [2u8; 32];
 
-    let (market_pubkey, _bump) = SolPubkey::find_program_address(
+    let (market_pubkey, _bump) = pinocchio::pubkey::find_program_address(
         &[LendingMarketState::SEED.as_bytes(), owner_seed.as_slice()],
-        &SolPubkey::new_from_array(program_id),
+        &program_id,
     );
-    let market_pubkey = market_pubkey.to_bytes();
 
     #[allow(deprecated)]
     let rent = PinRent {
@@ -176,7 +175,7 @@ pub fn initialize_lending_market() -> InitializedMarket {
     let ix_bytes = serialize_struct(&ix_data).to_vec();
     let accounts = [payer_account.info(), market.info(), rent_account.info()];
 
-    process_init_lending_market(&program_id, &accounts, &ix_bytes).unwrap();
+    process_init_lending_market(&accounts, &ix_bytes).unwrap();
 
     let market_state = unsafe {
         let info = market.info();

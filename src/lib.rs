@@ -25,14 +25,14 @@ pub fn process_instruction(
         .split_first()
         .ok_or(ProgramError::InvalidInstructionData)?;
 
-    use instructions::{market, LendingMarketInstruction::*};
+    use instructions::{market, PlendInstructions::*};
 
-    let instruction = instructions::LendingMarketInstruction::try_from(*discriminant)?;
+    let instruction = instructions::PlendInstructions::try_from(*discriminant)?;
 
     match instruction {
         InitLendingMarket => {
             ensure_payload_len::<market::InitLendingMarketIxData>(payload)?;
-            market::process_init_lending_market(program_id, accounts, payload)
+            market::process_init_lending_market(accounts, payload)
         }
         SetEmergencyMode => {
             ensure_payload_len::<market::SetEmergencyModeIxData>(payload)?;

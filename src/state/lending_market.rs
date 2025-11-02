@@ -1,15 +1,16 @@
 use pinocchio::pubkey::Pubkey;
 
 use crate::helper::{account_init::StateDefinition, utils::DataLen};
+use bytemuck::{Pod,Zeroable};
 
-#[repr(C)]
-#[derive(Clone, Copy)]
+#[repr(C,packed)]
+#[derive(Clone, Copy, Pod, Zeroable)]
 pub struct LendingMarketState {
     pub version: u64,
     pub lending_market_owner: Pubkey,
     pub quote_currency: [u8; 32],
     pub risk_council: Pubkey,
-    pub emergency_mode: bool,
+    pub emergency_mode: u8,
 }
 
 impl StateDefinition for LendingMarketState {
@@ -32,7 +33,7 @@ impl LendingMarketState {
             lending_market_owner,
             quote_currency,
             risk_council,
-            emergency_mode: false,
+            emergency_mode: 0,
         }
     }
 }

@@ -16,27 +16,27 @@ fn test_init_lending_market() {
 
     assert_eq!(state.lending_market_owner, *ctx.owner_pubkey());
     assert_eq!(state.risk_council, ctx.risk_council_pubkey);
-    assert!(!state.emergency_mode);
+    assert_eq!(state.emergency_mode, 0);
 }
 
 #[test]
 fn test_set_emergency_mode() {
     let ctx = initialize_lending_market();
 
-    let ix_data = SetEmergencyModeIxData { enable: true };
+    let ix_data = SetEmergencyModeIxData { enable: 1 };
     let accounts = [ctx.risk_council_account.info(), ctx.market.info()];
 
     process_set_emergency_mode(&ctx.program_id, &accounts, serialize_struct(&ix_data)).unwrap();
 
     let state = ctx.market_state();
-    assert!(state.emergency_mode);
+    assert_eq!(state.emergency_mode, 1);
 }
 
 #[test]
 fn test_set_emergency_mode_requires_authority() {
     let ctx = initialize_lending_market();
 
-    let ix_data = SetEmergencyModeIxData { enable: true };
+    let ix_data = SetEmergencyModeIxData { enable: 1 };
     let unauthorized =
         common::TestAccount::new([9u8; 32], common::system_program(), 0, 0, true, false);
     let accounts = [unauthorized.info(), ctx.market.info()];

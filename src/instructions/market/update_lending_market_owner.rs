@@ -1,14 +1,16 @@
 use crate::helper::{
     account_checks::check_signer,
-    utils::{load_ix_data, try_from_account_info_mut, DataLen},
+    utils::{try_from_account_info_mut, DataLen},
 };
 use crate::state::LendingMarketState;
 use pinocchio::{
     account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
 };
 
+use bytemuck::{Pod, Zeroable};
+
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy,Pod,Zeroable)]
 pub struct UpdateLendingMarketOwnerIxData {
     pub new_owner: Pubkey,
 }
@@ -28,7 +30,7 @@ pub fn process_update_lending_market_owner(
 
     check_signer(current_owner)?;
 
-    let ix_data = unsafe { load_ix_data::<UpdateLendingMarketOwnerIxData>(data)? };
+    let ix_data = bytemuck::from_bytes::<UpdateLendingMarketOwnerIxData>(&data[..UpdateLendingMarketOwnerIxData::LEN]);
 
     unsafe {
         let state = try_from_account_info_mut::<LendingMarketState>(lending_market)?;
