@@ -1,17 +1,15 @@
 use core::{mem, ptr};
 
 use p_lend::{
-    helper::utils::try_from_account_info_mut,
-    instructions::init_lending_market::{process_init_lending_market, InitLendingMarketIxData},
-    state::LendingMarketState,
-    StateDefinition, ID,
+    ID, LENDING_MARKET_SEED, StateDefinition, helper::utils::try_from_account_info_mut, instructions::init_lending_market::{InitLendingMarketIxData, process_init_lending_market}, state::LendingMarketState
 };
 use pinocchio::{
     account_info::AccountInfo,
     pubkey::Pubkey as ProgramPubkey,
     sysvars::rent::{Rent as PinRent, RENT_ID},
 };
-use solana_pubkey::Pubkey as SolPubkey;
+use solana_pubkey::Pubkey;
+
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -21,8 +19,8 @@ struct AccountLayout {
     is_writable: u8,
     executable: u8,
     resize_delta: i32,
-    key: SolPubkey,
-    owner: SolPubkey,
+    key: Pubkey,
+    owner: Pubkey,
     lamports: u64,
     data_len: u64,
 }
@@ -34,13 +32,13 @@ pub struct TestAccount {
 }
 
 
-const SYSTEM_PROGRAM_ID: SolPubkey = solana_sdk_ids::system_program::ID;
-
+const SYSTEM_PROGRAM_ID: Pubkey = solana_sdk_ids::system_program::ID;
+const PROGRAM_ID: Pubkey = Pubkey::new_from_array(ID);
 
 impl TestAccount {
     pub fn new(
-        key: SolPubkey,
-        owner: SolPubkey,
+        key: Pubkey,
+        owner: Pubkey,
         lamports: u64,
         data_len: usize,
         is_signer: bool,
@@ -58,8 +56,8 @@ impl TestAccount {
     }
 
     pub fn new_with_capacity(
-        key: SolPubkey,
-        owner: SolPubkey,
+        key: Pubkey,
+        owner: Pubkey,
         lamports: u64,
         data_len: usize,
         capacity: usize,
@@ -133,15 +131,12 @@ impl InitializedMarket {
 }
 
 pub fn initialize_lending_market() -> InitializedMarket {
-    let program_id = ID;
-    let program_id_sol = SolPubkey::new_from_array(program_id);
-
     let owner_seed = [1u8; 32];
     let risk_seed = [2u8; 32];
 
-    let (market_pubkey, _bump) = SolPubkey::find_program_address(
-        &[LendingMarketState::SEED.as_bytes(), owner_seed.as_slice()],
-        &program_id_sol,
+    let (market_pubkey, _bump) = Pubkey::find_program_address(
+        &[LENDING_MARKET_SEED.as_bytes(), owner_seed.as_slice()],
+        &PROGRAM_ID,
     );
 
     #[allow(deprecated)]
@@ -152,7 +147,7 @@ pub fn initialize_lending_market() -> InitializedMarket {
     };
     let rent_bytes = serialize_struct(&rent).to_vec();
 
-    let payer_account = TestAccount::new(SolPubkey::new_from_array(owner_seed), SYSTEM_PROGRAM_ID, 1_000_000_000, 0, true, true);
+    let payer_account = TestAccount::new(Pubkey::new_from_array(owner_seed), SYSTEM_PROGRAM_ID, 1_000_000_000, 0, true, true);
     let market = TestAccount::new_with_capacity(
         market_pubkey,
         SYSTEM_PROGRAM_ID,
@@ -162,7 +157,7 @@ pub fn initialize_lending_market() -> InitializedMarket {
         false,
         true,
     );
-    let rent_account = TestAccount::new(SolPubkey::new_from_array(RENT_ID), SYSTEM_PROGRAM_ID, 0, rent_bytes.len(), false, true);
+    let rent_account = TestAccount::new(Pubkey::new_from_array(RENT_ID), SYSTEM_PROGRAM_ID, 0, rent_bytes.len(), false, true);
     {
         let info = rent_account.info();
         let mut data = info.try_borrow_mut_data().unwrap();
@@ -186,7 +181,7 @@ pub fn initialize_lending_market() -> InitializedMarket {
     };
 
     let owner_account = TestAccount::new(
-        SolPubkey::new_from_array(market_state.lending_market_owner),
+        Pubkey::new_from_array(market_state.lending_market_owner),
         SYSTEM_PROGRAM_ID,
         1_000_000_000,
         0,
@@ -194,10 +189,10 @@ pub fn initialize_lending_market() -> InitializedMarket {
         true,
     );
     let risk_council_account =
-        TestAccount::new(SolPubkey::new_from_array(market_state.risk_council), SYSTEM_PROGRAM_ID, 0, 0, true, false);
+        TestAccount::new(Pubkey::new_from_array(market_state.risk_council), SYSTEM_PROGRAM_ID, 0, 0, true, false);
 
     InitializedMarket {
-        program_id,
+        program_id: ID,
         owner_pubkey: market_state.lending_market_owner,
         risk_council_pubkey: market_state.risk_council,
         owner_account,
@@ -207,6 +202,6 @@ pub fn initialize_lending_market() -> InitializedMarket {
     }
 }
 
-pub fn system_program() -> SolPubkey {
+pub fn system_program() -> Pubkey {
     SYSTEM_PROGRAM_ID
 }

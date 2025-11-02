@@ -6,9 +6,12 @@ pub mod helper;
 pub mod instructions;
 pub mod state;
 
+pub mod constants;
 pub use helper::*;
 pub use instructions::*;
 pub use state::*;
+
+pub use constants::*;
 
 pinocchio_pubkey::declare_id!("4ibrEMW5F6hKnkW4jVedswYv6H6VtwPN6ar6dvXDN1nT");
 

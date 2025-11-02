@@ -1,6 +1,6 @@
 use pinocchio::pubkey::Pubkey;
 
-use crate::helper::{account_init::StateDefinition, utils::DataLen};
+use crate::{LENDING_MARKET_SEED, helper::{account_init::StateDefinition, utils::DataLen}};
 use bytemuck::{Pod,Zeroable};
 
 #[repr(C,packed)]
@@ -15,7 +15,7 @@ pub struct LendingMarketState {
 
 impl StateDefinition for LendingMarketState {
     const LEN: usize = core::mem::size_of::<Self>();
-    const SEED: &'static str = "lending_market";
+    const SEED: &'static str = LENDING_MARKET_SEED;
 }
 
 impl DataLen for LendingMarketState {

@@ -1,0 +1,1 @@
+pub const LENDING_MARKET_SEED: &'static str = "lending_market";
