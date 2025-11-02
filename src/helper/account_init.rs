@@ -2,10 +2,7 @@ use pinocchio::{
     account_info::AccountInfo, instruction::Seed, program_error::ProgramError, sysvars::rent::Rent,
 };
 
-#[cfg(target_arch = "bpf")]
-use pinocchio::instruction::Signer;
-#[cfg(target_arch = "bpf")]
-use pinocchio_system::instructions::CreateAccount;
+use pinocchio::account_info::RefMut;
 
 pub trait StateDefinition {
     const LEN: usize;
@@ -22,24 +19,8 @@ pub fn create_pda_account<S>(
 where
     S: StateDefinition,
 {
-    #[cfg(target_arch = "bpf")]
-    let signers = [Signer::from(signer_seeds)];
-
-    #[cfg(target_arch = "bpf")]
-    {
-        CreateAccount {
-            from: payer,
-            to: account,
-            space: S::LEN as u64,
-            owner: &crate::ID,
-            lamports: rent.minimum_balance(S::LEN),
-        }
-        .invoke_signed(&signers)?;
-    }
-
     #[cfg(not(target_arch = "bpf"))]
     {
-        use pinocchio::account_info::RefMut;
         let required_lamports = rent.minimum_balance(S::LEN);
 
         // Transfer lamports from payer to the new account.

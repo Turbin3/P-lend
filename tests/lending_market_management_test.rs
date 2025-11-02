@@ -8,6 +8,7 @@ use p_lend::instructions::{
     },
     update_risk_council::{process_update_risk_council, UpdateRiskCouncilIxData},
 };
+use solana_pubkey::Pubkey as SolPubkey;
 
 #[test]
 fn test_init_lending_market() {
@@ -38,7 +39,7 @@ fn test_set_emergency_mode_requires_authority() {
 
     let ix_data = SetEmergencyModeIxData { enable: 1 };
     let unauthorized =
-        common::TestAccount::new([9u8; 32], common::system_program(), 0, 0, true, false);
+        common::TestAccount::new(SolPubkey::new_from_array([9u8; 32]), common::system_program(), 0, 0, true, false);
     let accounts = [unauthorized.info(), ctx.market.info()];
 
     let err = process_set_emergency_mode(&ctx.program_id, &accounts, serialize_struct(&ix_data))
@@ -71,7 +72,7 @@ fn test_update_risk_council_requires_owner() {
         new_risk_council: new_risk,
     };
     let unauthorized =
-        common::TestAccount::new([7u8; 32], common::system_program(), 0, 0, true, false);
+        common::TestAccount::new(SolPubkey::new_from_array([7u8; 32]), common::system_program(), 0, 0, true, false);
     let accounts = [unauthorized.info(), ctx.market.info()];
 
     let err = process_update_risk_council(&ctx.program_id, &accounts, serialize_struct(&ix_data))
@@ -101,7 +102,7 @@ fn test_update_lending_market_owner_requires_owner() {
 
     let ix_data = UpdateLendingMarketOwnerIxData { new_owner };
     let unauthorized =
-        common::TestAccount::new([8u8; 32], common::system_program(), 0, 0, true, false);
+        common::TestAccount::new(SolPubkey::new_from_array([8u8; 32]), common::system_program(), 0, 0, true, false);
     let accounts = [unauthorized.info(), ctx.market.info()];
 
     let err =
