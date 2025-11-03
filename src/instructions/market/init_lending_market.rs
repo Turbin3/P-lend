@@ -10,19 +10,15 @@ use pinocchio::{
 };
 
 use bytemuck::{Pod, Zeroable};
-
+use pinocchio::pubkey;
 
 #[cfg(not(target_arch = "bpf"))]
-fn find_program_address(
-    seeds: &[&[u8]],
-) -> Result<(Pubkey, u8), ProgramError> {
-    use pinocchio::pubkey;
-
+fn find_program_address(seeds: &[&[u8]]) -> Result<(Pubkey, u8), ProgramError> {
     let (derived, bump) = pubkey::find_program_address(seeds, &crate::ID);
     Ok((derived, bump))
 }
 #[repr(C)]
-#[derive(Clone, Copy,Pod,Zeroable)]
+#[derive(Clone, Copy, Pod, Zeroable)]
 pub struct InitLendingMarketIxData {
     pub lending_market_owner: Pubkey,
     pub quote_currency: [u8; 32],
@@ -33,10 +29,7 @@ impl DataLen for InitLendingMarketIxData {
     const LEN: usize = core::mem::size_of::<InitLendingMarketIxData>();
 }
 
-pub fn process_init_lending_market(
-    accounts: &[AccountInfo],
-    data: &[u8],
-) -> ProgramResult {
+pub fn process_init_lending_market(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
     let [lending_market_owner, lending_market, rent_sysvar, _remaining @ ..] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
@@ -47,7 +40,8 @@ pub fn process_init_lending_market(
         return Err(ProgramError::AccountAlreadyInitialized);
     }
 
-    let ix_data = bytemuck::from_bytes::<InitLendingMarketIxData>(&data[..InitLendingMarketIxData::LEN]);
+    let ix_data =
+        bytemuck::from_bytes::<InitLendingMarketIxData>(&data[..InitLendingMarketIxData::LEN]);
 
     if lending_market_owner.key() != &ix_data.lending_market_owner {
         return Err(ProgramError::InvalidAccountData);

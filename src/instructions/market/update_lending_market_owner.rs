@@ -10,7 +10,7 @@ use pinocchio::{
 use bytemuck::{Pod, Zeroable};
 
 #[repr(C)]
-#[derive(Clone, Copy,Pod,Zeroable)]
+#[derive(Clone, Copy, Pod, Zeroable)]
 pub struct UpdateLendingMarketOwnerIxData {
     pub new_owner: Pubkey,
 }
@@ -30,7 +30,9 @@ pub fn process_update_lending_market_owner(
 
     check_signer(current_owner)?;
 
-    let ix_data = bytemuck::from_bytes::<UpdateLendingMarketOwnerIxData>(&data[..UpdateLendingMarketOwnerIxData::LEN]);
+    let ix_data = bytemuck::from_bytes::<UpdateLendingMarketOwnerIxData>(
+        &data[..UpdateLendingMarketOwnerIxData::LEN],
+    );
 
     unsafe {
         let state = try_from_account_info_mut::<LendingMarketState>(lending_market)?;

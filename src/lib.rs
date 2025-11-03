@@ -1,5 +1,5 @@
 use pinocchio::{
-    account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
+    ProgramResult, account_info::AccountInfo, entrypoint, program_error::ProgramError, pubkey::Pubkey
 };
 
 pub mod helper;
@@ -13,7 +13,11 @@ pub use state::*;
 
 pub use constants::*;
 
+
+
 pinocchio_pubkey::declare_id!("4ibrEMW5F6hKnkW4jVedswYv6H6VtwPN6ar6dvXDN1nT");
+
+entrypoint!(process_instruction);
 
 pub fn process_instruction(
     program_id: &Pubkey,

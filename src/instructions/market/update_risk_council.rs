@@ -3,10 +3,10 @@ use crate::helper::{
     utils::{try_from_account_info_mut, DataLen},
 };
 use crate::state::LendingMarketState;
+use bytemuck::{Pod, Zeroable};
 use pinocchio::{
     account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
 };
-use bytemuck::{Pod, Zeroable};
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 pub struct UpdateRiskCouncilIxData {
@@ -28,7 +28,8 @@ pub fn process_update_risk_council(
 
     check_signer(owner)?;
 
-    let ix_data = bytemuck::from_bytes::<UpdateRiskCouncilIxData>(&data[..UpdateRiskCouncilIxData::LEN]);
+    let ix_data =
+        bytemuck::from_bytes::<UpdateRiskCouncilIxData>(&data[..UpdateRiskCouncilIxData::LEN]);
     unsafe {
         let state = try_from_account_info_mut::<LendingMarketState>(lending_market)?;
 

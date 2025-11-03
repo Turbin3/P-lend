@@ -1,9 +1,12 @@
 use pinocchio::pubkey::Pubkey;
 
-use crate::{LENDING_MARKET_SEED, helper::{account_init::StateDefinition, utils::DataLen}};
-use bytemuck::{Pod,Zeroable};
+use crate::{
+    helper::{account_init::StateDefinition, utils::DataLen},
+    LENDING_MARKET_SEED,
+};
+use bytemuck::{Pod, Zeroable};
 
-#[repr(C,packed)]
+#[repr(C, packed)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 pub struct LendingMarketState {
     pub version: u64,
