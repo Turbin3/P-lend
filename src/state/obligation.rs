@@ -1,6 +1,8 @@
 use bytemuck::{Pod, Zeroable};
 use pinocchio::pubkey::Pubkey;
 
+use crate::StateDefinition;
+
 #[repr(C)]
 #[derive(Pod, Zeroable, Clone, Copy, Debug, PartialEq)]
 pub struct ObligationState {
@@ -12,6 +14,11 @@ pub struct ObligationState {
     pub liquidation_threshold: u64,
     pub last_update_slot: u64,
     pub _padding: u64,
+}
+
+impl StateDefinition for ObligationState {
+    const LEN: usize = core::mem::size_of::<Self>();
+    const SEED: &'static str = "obligation";
 }
 
 #[repr(C)]
