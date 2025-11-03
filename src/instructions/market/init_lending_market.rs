@@ -1,9 +1,12 @@
-use crate::helper::{
-    account_checks::check_signer,
-    account_init::{create_pda_account, StateDefinition},
-    utils::{try_from_account_info_mut, DataLen},
-};
 use crate::state::LendingMarketState;
+use crate::{
+    helper::{
+        account_checks::check_signer,
+        account_init::{create_pda_account, StateDefinition},
+        utils::DataLen,
+    },
+    LENDING_MARKET_SEED,
+};
 use pinocchio::{
     account_info::AccountInfo, instruction::Seed, program_error::ProgramError, pubkey::Pubkey,
     sysvars::rent::Rent, ProgramResult,
@@ -48,7 +51,7 @@ pub fn process_init_lending_market(accounts: &[AccountInfo], data: &[u8]) -> Pro
     }
 
     let seeds = &[
-        LendingMarketState::SEED.as_bytes(),
+        LENDING_MARKET_SEED.as_bytes(),
         ix_data.lending_market_owner.as_ref(),
     ];
     let (expected_market_key, bump) = find_program_address(seeds)?;
@@ -59,7 +62,7 @@ pub fn process_init_lending_market(accounts: &[AccountInfo], data: &[u8]) -> Pro
 
     let rent = Rent::from_account_info(rent_sysvar)?;
     let bump_bytes = [bump];
-    let signer_seeds = [
+    let lending_market_seeds = [
         Seed::from(LendingMarketState::SEED.as_bytes()),
         Seed::from(ix_data.lending_market_owner.as_ref()),
         Seed::from(&bump_bytes[..]),
@@ -68,18 +71,19 @@ pub fn process_init_lending_market(accounts: &[AccountInfo], data: &[u8]) -> Pro
     create_pda_account::<LendingMarketState>(
         lending_market_owner,
         lending_market,
-        &signer_seeds,
+        &lending_market_seeds,
         &rent,
     )?;
 
-    unsafe {
-        let state = try_from_account_info_mut::<LendingMarketState>(lending_market)?;
-        *state = LendingMarketState::new(
-            ix_data.lending_market_owner,
-            ix_data.quote_currency,
-            ix_data.risk_council,
-        );
-    }
+    let data = &mut lending_market.try_borrow_mut_data()?;
+
+    let lending_market_state = &mut bytemuck::from_bytes_mut::<LendingMarketState>(data);
+
+    lending_market_state.emergency_mode = 0;
+    lending_market_state.lending_market_owner = ix_data.lending_market_owner;
+    lending_market_state.quote_currency = ix_data.quote_currency;
+    lending_market_state.version = 0;
+    lending_market_state.risk_council = ix_data.risk_council;
 
     Ok(())
 }

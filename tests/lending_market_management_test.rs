@@ -26,13 +26,17 @@ fn test_init_lending_market() {
     let ctx = initialize_lending_market();
     let state = ctx.market_state();
 
+    println!(
+        "owner: {:?}\n risk: {:?}\n emergency: {}",
+        state.lending_market_owner, state.risk_council, state.emergency_mode
+    );
+
     assert_eq!(state.lending_market_owner, ctx.owner_pubkey());
     assert_eq!(state.risk_council, ctx.risk_council_pubkey());
     assert_eq!(state.emergency_mode, 0);
 }
 
 #[test]
-#[ignore]
 fn test_set_emergency_mode() {
     let mut ctx = initialize_lending_market();
     let instruction = ctx.build_set_emergency_mode_instruction(1);
@@ -51,7 +55,6 @@ fn test_set_emergency_mode() {
 }
 
 #[test]
-#[ignore]
 fn test_set_emergency_mode_requires_authority() {
     let mut ctx = initialize_lending_market();
     let unauthorized = Keypair::new();
@@ -82,6 +85,7 @@ fn test_set_emergency_mode_requires_authority() {
         .expect_err("unauthorized authority should fail");
 
     match err.err {
+        TransactionError::InstructionError(_, InstructionError::IllegalOwner) => {}
         TransactionError::InstructionError(_, InstructionError::Custom(code)) => {
             assert_eq!(code, pinocchio::program_error::ILLEGAL_OWNER as u32)
         }
@@ -90,7 +94,6 @@ fn test_set_emergency_mode_requires_authority() {
 }
 
 #[test]
-#[ignore]
 fn test_update_risk_council() {
     let mut ctx = initialize_lending_market();
     let new_risk = [15u8; 32];
@@ -104,7 +107,6 @@ fn test_update_risk_council() {
 }
 
 #[test]
-#[ignore]
 fn test_update_risk_council_requires_owner() {
     let mut ctx = initialize_lending_market();
     let new_risk = [21u8; 32];
@@ -138,6 +140,7 @@ fn test_update_risk_council_requires_owner() {
         .expect_err("only owner should be allowed to update risk council");
 
     match err.err {
+        TransactionError::InstructionError(_, InstructionError::IllegalOwner) => {}
         TransactionError::InstructionError(_, InstructionError::Custom(code)) => {
             assert_eq!(code, pinocchio::program_error::ILLEGAL_OWNER as u32)
         }
@@ -146,7 +149,6 @@ fn test_update_risk_council_requires_owner() {
 }
 
 #[test]
-#[ignore]
 fn test_update_lending_market_owner() {
     let mut ctx = initialize_lending_market();
     let new_owner = [33u8; 32];
@@ -160,7 +162,6 @@ fn test_update_lending_market_owner() {
 }
 
 #[test]
-#[ignore]
 fn test_update_lending_market_owner_requires_owner() {
     let mut ctx = initialize_lending_market();
     let new_owner = [44u8; 32];
@@ -192,6 +193,7 @@ fn test_update_lending_market_owner_requires_owner() {
         .expect_err("only current owner may transfer ownership");
 
     match err.err {
+        TransactionError::InstructionError(_, InstructionError::IllegalOwner) => {}
         TransactionError::InstructionError(_, InstructionError::Custom(code)) => {
             assert_eq!(code, pinocchio::program_error::ILLEGAL_OWNER as u32)
         }

@@ -1,6 +1,6 @@
 use crate::helper::{
     account_checks::check_signer,
-    utils::{try_from_account_info_mut, DataLen},
+    utils::{ DataLen},
 };
 use crate::state::LendingMarketState;
 use bytemuck::{Pod, Zeroable};
@@ -30,15 +30,15 @@ pub fn process_update_risk_council(
 
     let ix_data =
         bytemuck::from_bytes::<UpdateRiskCouncilIxData>(&data[..UpdateRiskCouncilIxData::LEN]);
-    unsafe {
-        let state = try_from_account_info_mut::<LendingMarketState>(lending_market)?;
 
-        if owner.key() != &state.lending_market_owner {
-            return Err(ProgramError::IllegalOwner);
-        }
+    let data = &mut lending_market.try_borrow_mut_data()?;
+    let lending_market_state = &mut bytemuck::from_bytes_mut::<LendingMarketState>(data);
 
-        state.risk_council = ix_data.new_risk_council;
+    if owner.key() != &lending_market_state.lending_market_owner {
+        return Err(ProgramError::IllegalOwner);
     }
+
+    lending_market_state.risk_council = ix_data.new_risk_council;
 
     Ok(())
 }

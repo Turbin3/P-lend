@@ -9,6 +9,6 @@ pub fn close_account(account: &AccountInfo, destination: &AccountInfo) -> Progra
 
     *destination.try_borrow_mut_lamports()? += *account.try_borrow_lamports()?;
 
-    account.resize(1)?;
+    account.realloc(1, true)?;
     account.close()
 }

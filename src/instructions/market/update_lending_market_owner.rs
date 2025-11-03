@@ -1,6 +1,6 @@
 use crate::helper::{
     account_checks::check_signer,
-    utils::{try_from_account_info_mut, DataLen},
+    utils::{DataLen},
 };
 use crate::state::LendingMarketState;
 use pinocchio::{
@@ -34,15 +34,14 @@ pub fn process_update_lending_market_owner(
         &data[..UpdateLendingMarketOwnerIxData::LEN],
     );
 
-    unsafe {
-        let state = try_from_account_info_mut::<LendingMarketState>(lending_market)?;
+    let data = &mut lending_market.try_borrow_mut_data()?;
+    let lending_market_state = &mut bytemuck::from_bytes_mut::<LendingMarketState>(data);
 
-        if current_owner.key() != &state.lending_market_owner {
-            return Err(ProgramError::IllegalOwner);
-        }
-
-        state.lending_market_owner = ix_data.new_owner;
+    if current_owner.key() != &lending_market_state.lending_market_owner {
+        return Err(ProgramError::IllegalOwner);
     }
+
+    lending_market_state.lending_market_owner = ix_data.new_owner;
 
     Ok(())
 }

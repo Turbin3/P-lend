@@ -1,7 +1,5 @@
 use pinocchio::{account_info::AccountInfo, program_error::ProgramError};
 
-// use crate::error::MyProgramError;
-
 pub trait DataLen {
     const LEN: usize;
 }

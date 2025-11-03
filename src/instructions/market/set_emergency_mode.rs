@@ -1,6 +1,6 @@
 use crate::helper::{
     account_checks::check_signer,
-    utils::{try_from_account_info_mut, DataLen},
+    utils::{ DataLen},
 };
 use crate::state::LendingMarketState;
 use bytemuck::{Pod, Zeroable};
@@ -31,16 +31,16 @@ pub fn process_set_emergency_mode(
     let ix_data =
         bytemuck::from_bytes::<SetEmergencyModeIxData>(&data[..SetEmergencyModeIxData::LEN]);
 
-    unsafe {
-        let state = try_from_account_info_mut::<LendingMarketState>(lending_market)?;
+    let data = &mut lending_market.try_borrow_mut_data()?;
+    let lending_market_state = &mut bytemuck::from_bytes_mut::<LendingMarketState>(data);
 
-        let key = authority.key();
-        if key != &state.lending_market_owner && key != &state.risk_council {
-            return Err(ProgramError::IllegalOwner);
-        }
-
-        state.emergency_mode = ix_data.enable as u8;
+    if authority.key() != &lending_market_state.lending_market_owner
+        && authority.key() != &lending_market_state.risk_council
+    {
+        return Err(ProgramError::IllegalOwner);
     }
+
+    lending_market_state.emergency_mode = ix_data.enable as u8;
 
     Ok(())
 }

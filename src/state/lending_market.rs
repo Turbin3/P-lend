@@ -7,7 +7,7 @@ use crate::{
 use bytemuck::{Pod, Zeroable};
 
 #[repr(C, packed)]
-#[derive(Clone, Copy, Pod, Zeroable)]
+#[derive(Pod, Zeroable, Debug, Clone, Copy, PartialEq)]
 pub struct LendingMarketState {
     pub version: u64,
     pub lending_market_owner: Pubkey,

@@ -3,6 +3,7 @@ use litesvm::{
     types::{FailedTransactionMetadata, TransactionMetadata},
     LiteSVM,
 };
+use pinocchio::sysvars::rent::RENT_ID;
 use plend::{
     helper::utils::DataLen,
     instructions::{
@@ -13,11 +14,11 @@ use plend::{
     state::LendingMarketState,
     ID,
 };
-use pinocchio::sysvars::rent::RENT_ID;
 use solana_instruction::{account_meta::AccountMeta, Instruction};
 use solana_keypair::Keypair;
 use solana_message::{v0, VersionedMessage};
 use solana_pubkey::Pubkey;
+use solana_sdk_ids::system_program;
 use solana_signer::Signer;
 use solana_transaction::versioned::VersionedTransaction;
 
@@ -71,6 +72,13 @@ impl InitializedMarket {
             .svm
             .get_account(&self.market_pubkey)
             .expect("lending market account missing");
+        if account.data.len() < LendingMarketState::LEN {
+            panic!(
+                "market account too small: {} < {}",
+                account.data.len(),
+                LendingMarketState::LEN
+            );
+        }
         let data = &account.data[..LendingMarketState::LEN];
         *try_from_bytes::<LendingMarketState>(data).expect("invalid lending market account state")
     }
@@ -171,6 +179,7 @@ pub fn initialize_lending_market() -> InitializedMarket {
             AccountMeta::new(fee_payer.pubkey(), true),
             AccountMeta::new(market_pubkey, false),
             AccountMeta::new_readonly(Pubkey::new_from_array(RENT_ID), false),
+            AccountMeta::new(system_program::ID, false),
         ],
         data,
     };
