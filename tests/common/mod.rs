@@ -4,14 +4,19 @@ use litesvm::{
     LiteSVM,
 };
 use pinocchio::sysvars::rent::RENT_ID;
+use pinocchio_system::ID as SYSTEM_PROGRAM_ID;
 use plend::{
+    constants::{RESERVE_SEED},
     helper::utils::DataLen,
     instructions::{
-        init_lending_market::InitLendingMarketIxData, set_emergency_mode::SetEmergencyModeIxData,
+        init_lending_market::InitLendingMarketIxData, 
+        init_reserve::InitReserveIxData,
+        set_emergency_mode::SetEmergencyModeIxData,
         update_lending_market_owner::UpdateLendingMarketOwnerIxData,
-        update_risk_council::UpdateRiskCouncilIxData, PlendInstructions,
+        update_risk_council::UpdateRiskCouncilIxData, 
+        PlendInstructions,
     },
-    state::LendingMarketState,
+    state::{LendingMarketState, ReserveState},
     ID,
 };
 use solana_instruction::{account_meta::AccountMeta, Instruction};
@@ -83,6 +88,22 @@ impl InitializedMarket {
         *try_from_bytes::<LendingMarketState>(data).expect("invalid lending market account state")
     }
 
+    pub fn reserve_state(&self, reserve_pubkey: &Pubkey) -> ReserveState {
+        let account = self
+            .svm
+            .get_account(reserve_pubkey)
+            .expect("reserve account missing");
+        if account.data.len() < ReserveState::LEN {
+            panic!(
+                "reserve account too small: {} < {}",
+                account.data.len(),
+                ReserveState::LEN
+            );
+        }
+        let data = &account.data[..ReserveState::LEN];
+        *try_from_bytes::<ReserveState>(data).expect("invalid reserve account state")
+    }
+
     pub fn owner_pubkey(&self) -> [u8; 32] {
         self.fee_payer.pubkey().to_bytes()
     }
@@ -104,6 +125,52 @@ impl InitializedMarket {
         self.svm
             .airdrop(recipient, lamports)
             .expect("airdrop failed unexpectedly");
+    }
+
+    pub fn build_init_reserve_instruction(
+        &self,
+        mint: &Pubkey,
+        ltv: u16,
+        liquidation_threshold: u16,
+        liquidation_bonus: u16,
+        borrow_cap: u64,
+        deposit_cap: u64,
+    ) -> (Instruction, Pubkey) {
+        let (reserve_pubkey, _bump) = Pubkey::find_program_address(
+            &[
+                RESERVE_SEED.as_bytes(),
+                self.market_pubkey.as_ref(),
+                mint.as_ref(),
+            ],
+            &self.program_id,
+        );
+
+        let ix_data = InitReserveIxData {
+            ltv,
+            liquidation_threshold,
+            liquidation_bonus,
+            borrow_cap,
+            deposit_cap,
+        };
+
+        let mut data = Vec::with_capacity(1 + InitReserveIxData::LEN);
+        data.push(PlendInstructions::InitReserve as u8);
+        data.extend_from_slice(serialize_struct(&ix_data));
+
+        let instruction = Instruction {
+            program_id: self.program_id,
+            accounts: vec![
+                AccountMeta::new(self.fee_payer.pubkey(), true),
+                AccountMeta::new(reserve_pubkey, false),
+                AccountMeta::new_readonly(self.market_pubkey, false),
+                AccountMeta::new_readonly(*mint, false),
+                AccountMeta::new_readonly(Pubkey::new_from_array(RENT_ID), false),
+                AccountMeta::new_readonly(Pubkey::new_from_array(SYSTEM_PROGRAM_ID), false),
+            ],
+            data,
+        };
+
+        (instruction, reserve_pubkey)
     }
 
     pub fn build_set_emergency_mode_instruction(&self, enable: u8) -> Instruction {
