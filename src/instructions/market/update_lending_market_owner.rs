@@ -1,7 +1,4 @@
-use crate::helper::{
-    account_checks::check_signer,
-    utils::{DataLen},
-};
+use crate::helper::{account_checks::check_signer, utils::DataLen};
 use crate::state::LendingMarketState;
 use pinocchio::{
     account_info::AccountInfo, program_error::ProgramError, pubkey::Pubkey, ProgramResult,
