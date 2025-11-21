@@ -1,6 +1,8 @@
 pub mod market;
+pub mod obligation;
 
 pub use market::*;
+pub use obligation::*;
 use pinocchio::program_error::ProgramError;
 
 pub enum PlendInstructions {
