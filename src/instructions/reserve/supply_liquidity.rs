@@ -99,14 +99,12 @@ pub fn process_supply_liquidity(
     }
 
     // Transfer tokens from user to reserve vault
-    let transfer_ix = pinocchio_token::instructions::Transfer {
+   pinocchio_token::instructions::Transfer {
         from: user_token_account,
         to: reserve_vault,
         authority: user,
         amount,
-    };
-
-    transfer_ix.invoke()?;
+    }.invoke()?;
 
     // Update reserve state
     reserve_state.available_liquidity = reserve_state.available_liquidity
