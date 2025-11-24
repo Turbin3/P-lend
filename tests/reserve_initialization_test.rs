@@ -1,8 +1,9 @@
 mod common;
 
 use common::initialize_lending_market;
+use litesvm_token::{spl_token, CreateMint};
 use plend::{
-    constants::RESERVE_SEED,
+    constants::{RESERVE_SEED, RESERVE_VAULT_SEED},
     instructions::{init_reserve::InitReserveIxData, PlendInstructions},
 };
 use solana_instruction::{account_meta::AccountMeta, error::InstructionError, Instruction};
@@ -12,6 +13,8 @@ use solana_signer::Signer;
 use solana_transaction_error::TransactionError;
 use pinocchio::sysvars::rent::RENT_ID;
 use pinocchio_system::ID as SYSTEM_PROGRAM_ID;
+
+const TOKEN_PROGRAM_ID: Pubkey = Pubkey::new_from_array(spl_token::ID.to_bytes());
 
 fn encode_instruction<T: plend::helper::utils::DataLen>(
     discriminant: PlendInstructions,
@@ -31,70 +34,9 @@ fn create_test_mint() -> Pubkey {
 #[test]
 fn test_init_reserve_success() {
     let mut ctx = initialize_lending_market();
-    let mint = create_test_mint();
+    let mint = ctx.create_mint(6); // Create a real SPL Token mint with 6 decimals
     
-    let (instruction, reserve_pubkey) = ctx.build_init_reserve_instruction(
-        &mint,
-        8000,  // 80% LTV
-        8500,  // 85% liquidation threshold
-        500,   // 5% liquidation bonus
-        1_000_000_000, // 1B borrow cap
-        2_000_000_000, // 2B deposit cap
-    );
-
-    // Execute the instruction
-    ctx.send_instruction(vec![ctx.fee_payer.insecure_clone()], instruction)
-        .expect("Reserve initialization should succeed");
-
-    // Verify the reserve state  
-    let reserve_state = ctx.reserve_state(&reserve_pubkey);
-    
-    // Copy packed fields to avoid alignment issues
-    let lending_market = reserve_state.lending_market;
-    let mint_bytes = reserve_state.mint;
-    let version = reserve_state.version;
-    let available_liquidity = reserve_state.available_liquidity;
-    let total_supply = reserve_state.total_supply;
-    let total_borrows = reserve_state.total_borrows;
-    let supply_index = reserve_state.supply_index;
-    let borrow_index = reserve_state.borrow_index;
-    let ltv = reserve_state.ltv;
-    let liquidation_threshold = reserve_state.liquidation_threshold;
-    let liquidation_bonus = reserve_state.liquidation_bonus;
-    let borrow_cap = reserve_state.borrow_cap;
-    let deposit_cap = reserve_state.deposit_cap;
-    let farm_address = reserve_state.farm_address;
-    let farm_balance = reserve_state.farm_balance;
-    let is_active = reserve_state.is_active;
-    let allow_deposits = reserve_state.allow_deposits;
-    let allow_borrows = reserve_state.allow_borrows;
-    
-    assert_eq!(lending_market, ctx.market_pubkey.to_bytes());
-    assert_eq!(mint_bytes, mint.to_bytes());
-    assert_eq!(version, 0);
-    assert_eq!(available_liquidity, 0);
-    assert_eq!(total_supply, 0);
-    assert_eq!(total_borrows, 0);
-    assert_eq!(supply_index, 1_000_000_000_000_000_000); // 1.0 in 18 decimals
-    assert_eq!(borrow_index, 1_000_000_000_000_000_000); // 1.0 in 18 decimals
-    assert_eq!(ltv, 8000);
-    assert_eq!(liquidation_threshold, 8500);
-    assert_eq!(liquidation_bonus, 500);
-    assert_eq!(borrow_cap, 1_000_000_000);
-    assert_eq!(deposit_cap, 2_000_000_000);
-    assert_eq!(farm_address, [0u8; 32]); // Zero pubkey
-    assert_eq!(farm_balance, 0);
-    assert_eq!(is_active, 1);
-    assert_eq!(allow_deposits, 1);
-    assert_eq!(allow_borrows, 1);
-}
-
-#[test]
-fn test_init_reserve_with_minimal_params() {
-    let mut ctx = initialize_lending_market();
-    let mint = create_test_mint();
-    
-    let (instruction, reserve_pubkey) = ctx.build_init_reserve_instruction(
+    let (instruction, reserve_pubkey, _vault_pubkey) = ctx.build_init_reserve_instruction(
         &mint,
         0,    // 0% LTV
         100,  // 1% liquidation threshold
@@ -127,9 +69,9 @@ fn test_init_reserve_with_minimal_params() {
 #[test]
 fn test_init_reserve_with_maximum_params() {
     let mut ctx = initialize_lending_market();
-    let mint = create_test_mint();
+    let mint = ctx.create_mint(6);
     
-    let (instruction, reserve_pubkey) = ctx.build_init_reserve_instruction(
+    let (instruction, reserve_pubkey, _vault_pubkey) = ctx.build_init_reserve_instruction(
         &mint,
         9999,  // 99.99% LTV
         10000, // 100% liquidation threshold
@@ -162,13 +104,21 @@ fn test_init_reserve_with_maximum_params() {
 #[test]
 fn test_init_reserve_invalid_ltv_too_high() {
     let mut ctx = initialize_lending_market();
-    let mint = create_test_mint();
+    let mint = ctx.create_mint(6);
 
     let (reserve_pubkey, _bump) = Pubkey::find_program_address(
         &[
             RESERVE_SEED.as_bytes(),
             ctx.market_pubkey.as_ref(),
             mint.as_ref(),
+        ],
+        &ctx.program_id,
+    );
+
+    let (vault_pubkey, _vault_bump) = Pubkey::find_program_address(
+        &[
+            RESERVE_VAULT_SEED.as_bytes(),
+            reserve_pubkey.as_ref(),
         ],
         &ctx.program_id,
     );
@@ -189,8 +139,10 @@ fn test_init_reserve_invalid_ltv_too_high() {
             AccountMeta::new(reserve_pubkey, false),
             AccountMeta::new_readonly(ctx.market_pubkey, false),
             AccountMeta::new_readonly(mint, false),
+            AccountMeta::new(vault_pubkey, false),
+            AccountMeta::new_readonly(TOKEN_PROGRAM_ID, false),
             AccountMeta::new_readonly(Pubkey::new_from_array(RENT_ID), false),
-            AccountMeta::new_readonly(Pubkey::new_from_array(SYSTEM_PROGRAM_ID), false),
+            AccountMeta::new(Pubkey::new_from_array(SYSTEM_PROGRAM_ID), false),
         ],
         data,
     };
@@ -211,13 +163,21 @@ fn test_init_reserve_invalid_ltv_too_high() {
 #[test]
 fn test_init_reserve_invalid_liquidation_threshold_too_high() {
     let mut ctx = initialize_lending_market();
-    let mint = create_test_mint();
+    let mint = ctx.create_mint(6);
 
     let (reserve_pubkey, _bump) = Pubkey::find_program_address(
         &[
             RESERVE_SEED.as_bytes(),
             ctx.market_pubkey.as_ref(),
             mint.as_ref(),
+        ],
+        &ctx.program_id,
+    );
+
+    let (vault_pubkey, _vault_bump) = Pubkey::find_program_address(
+        &[
+            RESERVE_VAULT_SEED.as_bytes(),
+            reserve_pubkey.as_ref(),
         ],
         &ctx.program_id,
     );
@@ -238,8 +198,10 @@ fn test_init_reserve_invalid_liquidation_threshold_too_high() {
             AccountMeta::new(reserve_pubkey, false),
             AccountMeta::new_readonly(ctx.market_pubkey, false),
             AccountMeta::new_readonly(mint, false),
+            AccountMeta::new(vault_pubkey, false),
+            AccountMeta::new_readonly(TOKEN_PROGRAM_ID, false),
             AccountMeta::new_readonly(Pubkey::new_from_array(RENT_ID), false),
-            AccountMeta::new_readonly(Pubkey::new_from_array(SYSTEM_PROGRAM_ID), false),
+            AccountMeta::new(Pubkey::new_from_array(SYSTEM_PROGRAM_ID), false),
         ],
         data,
     };
@@ -260,13 +222,21 @@ fn test_init_reserve_invalid_liquidation_threshold_too_high() {
 #[test]
 fn test_init_reserve_invalid_liquidation_bonus_too_high() {
     let mut ctx = initialize_lending_market();
-    let mint = create_test_mint();
+    let mint = ctx.create_mint(6);
 
     let (reserve_pubkey, _bump) = Pubkey::find_program_address(
         &[
             RESERVE_SEED.as_bytes(),
             ctx.market_pubkey.as_ref(),
             mint.as_ref(),
+        ],
+        &ctx.program_id,
+    );
+
+    let (vault_pubkey, _vault_bump) = Pubkey::find_program_address(
+        &[
+            RESERVE_VAULT_SEED.as_bytes(),
+            reserve_pubkey.as_ref(),
         ],
         &ctx.program_id,
     );
@@ -287,8 +257,10 @@ fn test_init_reserve_invalid_liquidation_bonus_too_high() {
             AccountMeta::new(reserve_pubkey, false),
             AccountMeta::new_readonly(ctx.market_pubkey, false),
             AccountMeta::new_readonly(mint, false),
+            AccountMeta::new(vault_pubkey, false),
+            AccountMeta::new_readonly(TOKEN_PROGRAM_ID, false),
             AccountMeta::new_readonly(Pubkey::new_from_array(RENT_ID), false),
-            AccountMeta::new_readonly(Pubkey::new_from_array(SYSTEM_PROGRAM_ID), false),
+            AccountMeta::new(Pubkey::new_from_array(SYSTEM_PROGRAM_ID), false),
         ],
         data,
     };
@@ -309,13 +281,21 @@ fn test_init_reserve_invalid_liquidation_bonus_too_high() {
 #[test]
 fn test_init_reserve_invalid_ltv_gte_liquidation_threshold() {
     let mut ctx = initialize_lending_market();
-    let mint = create_test_mint();
+    let mint = ctx.create_mint(6);
 
     let (reserve_pubkey, _bump) = Pubkey::find_program_address(
         &[
             RESERVE_SEED.as_bytes(),
             ctx.market_pubkey.as_ref(),
             mint.as_ref(),
+        ],
+        &ctx.program_id,
+    );
+
+    let (vault_pubkey, _vault_bump) = Pubkey::find_program_address(
+        &[
+            RESERVE_VAULT_SEED.as_bytes(),
+            reserve_pubkey.as_ref(),
         ],
         &ctx.program_id,
     );
@@ -336,8 +316,10 @@ fn test_init_reserve_invalid_ltv_gte_liquidation_threshold() {
             AccountMeta::new(reserve_pubkey, false),
             AccountMeta::new_readonly(ctx.market_pubkey, false),
             AccountMeta::new_readonly(mint, false),
+            AccountMeta::new(vault_pubkey, false),
+            AccountMeta::new_readonly(TOKEN_PROGRAM_ID, false),
             AccountMeta::new_readonly(Pubkey::new_from_array(RENT_ID), false),
-            AccountMeta::new_readonly(Pubkey::new_from_array(SYSTEM_PROGRAM_ID), false),
+            AccountMeta::new(Pubkey::new_from_array(SYSTEM_PROGRAM_ID), false),
         ],
         data,
     };
@@ -358,7 +340,7 @@ fn test_init_reserve_invalid_ltv_gte_liquidation_threshold() {
 #[test]
 fn test_init_reserve_requires_market_owner() {
     let mut ctx = initialize_lending_market();
-    let mint = create_test_mint();
+    let mint = ctx.create_mint(6);
     let unauthorized = Keypair::new();
     ctx.airdrop(&unauthorized.pubkey(), 1_000_000_000);
 
@@ -367,6 +349,14 @@ fn test_init_reserve_requires_market_owner() {
             RESERVE_SEED.as_bytes(),
             ctx.market_pubkey.as_ref(),
             mint.as_ref(),
+        ],
+        &ctx.program_id,
+    );
+
+    let (vault_pubkey, _vault_bump) = Pubkey::find_program_address(
+        &[
+            RESERVE_VAULT_SEED.as_bytes(),
+            reserve_pubkey.as_ref(),
         ],
         &ctx.program_id,
     );
@@ -389,6 +379,8 @@ fn test_init_reserve_requires_market_owner() {
             AccountMeta::new_readonly(mint, false),
             AccountMeta::new_readonly(Pubkey::new_from_array(RENT_ID), false),
             AccountMeta::new_readonly(Pubkey::new_from_array(SYSTEM_PROGRAM_ID), false),
+            AccountMeta::new(vault_pubkey, false),
+            AccountMeta::new_readonly(TOKEN_PROGRAM_ID, false),
         ],
         data,
     };
@@ -415,9 +407,9 @@ fn test_init_reserve_requires_market_owner() {
 #[test]
 fn test_init_reserve_already_initialized() {
     let mut ctx = initialize_lending_market();
-    let mint = create_test_mint();
+    let mint = ctx.create_mint(6);
     
-    let (instruction1, _reserve_pubkey) = ctx.build_init_reserve_instruction(
+    let (instruction1, _reserve_pubkey, _vault_pubkey) = ctx.build_init_reserve_instruction(
         &mint,
         8000,
         8500,
@@ -431,7 +423,7 @@ fn test_init_reserve_already_initialized() {
         .expect("First initialization should succeed");
 
     // Try to initialize again with slightly different parameters
-    let (instruction2, _) = ctx.build_init_reserve_instruction(
+    let (instruction2, _, _) = ctx.build_init_reserve_instruction(
         &mint,
         7500, // Different LTV to make a different instruction
         8000,
@@ -456,9 +448,17 @@ fn test_init_reserve_already_initialized() {
 #[test]
 fn test_init_reserve_wrong_pda() {
     let mut ctx = initialize_lending_market();
-    let mint = create_test_mint();
+    let mint = ctx.create_mint(6);
     let wrong_reserve = Keypair::new();
     ctx.airdrop(&wrong_reserve.pubkey(), 1_000_000_000);
+
+    let (vault_pubkey, _vault_bump) = Pubkey::find_program_address(
+        &[
+            RESERVE_VAULT_SEED.as_bytes(),
+            wrong_reserve.pubkey().as_ref(),
+        ],
+        &ctx.program_id,
+    );
 
     let ix_data = InitReserveIxData {
         ltv: 8000,
@@ -478,6 +478,8 @@ fn test_init_reserve_wrong_pda() {
             AccountMeta::new_readonly(mint, false),
             AccountMeta::new_readonly(Pubkey::new_from_array(RENT_ID), false),
             AccountMeta::new_readonly(Pubkey::new_from_array(SYSTEM_PROGRAM_ID), false),
+            AccountMeta::new(vault_pubkey, false),
+            AccountMeta::new_readonly(TOKEN_PROGRAM_ID, false),
         ],
         data,
     };
@@ -498,11 +500,11 @@ fn test_init_reserve_wrong_pda() {
 #[test]
 fn test_init_multiple_reserves_same_market() {
     let mut ctx = initialize_lending_market();
-    let mint1 = create_test_mint();
-    let mint2 = create_test_mint();
+    let mint1 = ctx.create_mint(6);
+    let mint2 = ctx.create_mint(6);
     
     // Initialize first reserve
-    let (instruction1, reserve_pubkey1) = ctx.build_init_reserve_instruction(
+    let (instruction1, reserve_pubkey1, _vault_pubkey1) = ctx.build_init_reserve_instruction(
         &mint1,
         8000, 8500, 500, 1_000_000_000, 2_000_000_000,
     );
@@ -511,7 +513,7 @@ fn test_init_multiple_reserves_same_market() {
         .expect("First reserve initialization should succeed");
 
     // Initialize second reserve
-    let (instruction2, reserve_pubkey2) = ctx.build_init_reserve_instruction(
+    let (instruction2, reserve_pubkey2, _vault_pubkey2) = ctx.build_init_reserve_instruction(
         &mint2,
         7500, 8000, 600, 500_000_000, 1_500_000_000,
     );

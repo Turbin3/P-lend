@@ -56,6 +56,22 @@ pub fn process_instruction(
             ensure_payload_len::<reserve::InitReserveIxData>(payload)?;
             reserve::process_init_reserve(accounts, payload)
         }
+        EnableReserve => {
+            ensure_payload_len::<reserve::EnableReserveIxData>(payload)?;
+            reserve::process_enable_reserve(program_id, accounts, payload)
+        }
+        DisableReserve => {
+            ensure_payload_len::<reserve::DisableReserveIxData>(payload)?;
+            reserve::process_disable_reserve(program_id, accounts, payload)
+        }
+        CloseReserve => {
+            ensure_payload_len::<reserve::CloseReserveIxData>(payload)?;
+            reserve::process_close_reserve(program_id, accounts, payload)
+        }
+        SupplyLiquidity => {
+            ensure_payload_len::<reserve::SupplyLiquidityIxData>(payload)?;
+            reserve::process_supply_liquidity(program_id, accounts, payload)
+        }
     }
 }
 

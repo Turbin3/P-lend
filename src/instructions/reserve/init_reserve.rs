@@ -5,7 +5,7 @@ use crate::{
         account_init::{create_pda_account, StateDefinition},
         utils::DataLen,
     },
-    constants::RESERVE_SEED,
+    constants::{RESERVE_SEED, RESERVE_VAULT_SEED},
 };
 use pinocchio::{
     account_info::AccountInfo, instruction::Seed, program_error::ProgramError, pubkey::Pubkey,
@@ -36,7 +36,16 @@ impl DataLen for InitReserveIxData {
 }
 
 pub fn process_init_reserve(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
-    let [lending_market_owner, reserve, lending_market, mint, rent_sysvar, _remaining @ ..] = accounts else {
+    let [
+        lending_market_owner, 
+        reserve, 
+        lending_market, 
+        mint,
+        reserve_vault,
+        token_program,
+        rent_sysvar, 
+        _remaining @ ..
+    ] = accounts else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
     check_signer(lending_market_owner)?;
@@ -109,6 +118,51 @@ pub fn process_init_reserve(accounts: &[AccountInfo], data: &[u8]) -> ProgramRes
         ix_data.borrow_cap,
         ix_data.deposit_cap,
     );
+
+    let vault_seeds = &[
+        RESERVE_VAULT_SEED.as_bytes(),
+        reserve.key().as_ref(),
+    ];
+    let (expected_vault_key, vault_bump) = find_program_address(vault_seeds)?;
+
+    if expected_vault_key != *reserve_vault.key() {
+        return Err(ProgramError::InvalidSeeds);
+    }
+
+    // Check if vault already exists
+    if !reserve_vault.data_is_empty() {
+        return Err(ProgramError::AccountAlreadyInitialized);
+    }
+
+    // Create vault PDA with system program
+    let vault_bump_bytes = [vault_bump];
+    let vault_signer_seeds = [
+        Seed::from(RESERVE_VAULT_SEED.as_bytes()),
+        Seed::from(reserve.key().as_ref()),
+        Seed::from(&vault_bump_bytes[..]),
+    ];
+
+    let space = 165u64;
+    let lamports = rent.minimum_balance(165);
+    
+    let create_account_ix = pinocchio_system::instructions::CreateAccount {
+        from: lending_market_owner,
+        to: reserve_vault,
+        lamports,
+        space,
+        owner: token_program.key(),
+    };
+
+    create_account_ix.invoke_signed(&[pinocchio::instruction::Signer::from(&vault_signer_seeds)])?;
+
+    // Initialize as SPL token account with reserve as authority
+    let init_account_ix = pinocchio_token::instructions::InitializeAccount3 {
+        account: reserve_vault,
+        mint,
+        owner: reserve.key(), // Reserve PDA controls the vault
+    };
+
+    init_account_ix.invoke()?;
 
     Ok(())
 }

@@ -11,6 +11,10 @@ pub enum PlendInstructions {
     SetEmergencyMode = 2,
     UpdateRiskCouncil = 3,
     InitReserve = 4,
+    EnableReserve = 5,
+    DisableReserve = 6,
+    CloseReserve = 7,
+    SupplyLiquidity = 8,
 }
 
 impl TryFrom<u8> for PlendInstructions {
@@ -23,6 +27,10 @@ impl TryFrom<u8> for PlendInstructions {
             2 => Ok(PlendInstructions::SetEmergencyMode),
             3 => Ok(PlendInstructions::UpdateRiskCouncil),
             4 => Ok(PlendInstructions::InitReserve),
+            5 => Ok(PlendInstructions::EnableReserve),
+            6 => Ok(PlendInstructions::DisableReserve),
+            7 => Ok(PlendInstructions::CloseReserve),
+            8 => Ok(PlendInstructions::SupplyLiquidity),
             _ => Err(ProgramError::InvalidInstructionData),
         }
     }
