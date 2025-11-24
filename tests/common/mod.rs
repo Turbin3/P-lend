@@ -3,7 +3,7 @@ use litesvm::{
     types::{FailedTransactionMetadata, TransactionMetadata},
     LiteSVM,
 };
-use litesvm_token::{spl_token, CreateMint};
+use litesvm_token::{spl_token, CreateMint, CreateAssociatedTokenAccount, MintTo};
 use pinocchio::sysvars::rent::RENT_ID;
 use pinocchio_system::ID as SYSTEM_PROGRAM_ID;
 use plend::{
@@ -150,6 +150,19 @@ impl InitializedMarket {
         } else {
             false
         }
+    }
+
+    pub fn create_token_account(&mut self, owner: &Pubkey, mint: &Pubkey) -> Pubkey {
+        CreateAssociatedTokenAccount::new(&mut self.svm, &self.fee_payer, mint)
+            .owner(owner)
+            .send()
+            .expect("failed to create associated token account")
+    }
+
+    pub fn mint_tokens(&mut self, mint: &Pubkey, destination: &Pubkey, amount: u64) {
+        MintTo::new(&mut self.svm, &self.fee_payer, mint, destination, amount)
+            .send()
+            .expect("failed to mint tokens")
     }
 
     pub fn build_init_reserve_instruction(
