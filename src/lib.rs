@@ -31,7 +31,7 @@ pub fn process_instruction(
         .split_first()
         .ok_or(ProgramError::InvalidInstructionData)?;
 
-    use instructions::{market, PlendInstructions::*};
+    use instructions::{market, reserve, PlendInstructions::*};
 
     let instruction = instructions::PlendInstructions::try_from(*discriminant)?;
 
@@ -51,6 +51,26 @@ pub fn process_instruction(
         UpdateLendingMarketOwner => {
             ensure_payload_len::<market::UpdateLendingMarketOwnerIxData>(payload)?;
             market::process_update_lending_market_owner(program_id, accounts, payload)
+        }
+        InitReserve => {
+            ensure_payload_len::<reserve::InitReserveIxData>(payload)?;
+            reserve::process_init_reserve(accounts, payload)
+        }
+        EnableReserve => {
+            ensure_payload_len::<reserve::EnableReserveIxData>(payload)?;
+            reserve::process_enable_reserve(program_id, accounts, payload)
+        }
+        DisableReserve => {
+            ensure_payload_len::<reserve::DisableReserveIxData>(payload)?;
+            reserve::process_disable_reserve(program_id, accounts, payload)
+        }
+        CloseReserve => {
+            ensure_payload_len::<reserve::CloseReserveIxData>(payload)?;
+            reserve::process_close_reserve(program_id, accounts, payload)
+        }
+        SupplyLiquidity => {
+            ensure_payload_len::<reserve::SupplyLiquidityIxData>(payload)?;
+            reserve::process_supply_liquidity(program_id, accounts, payload)
         }
     }
 }
