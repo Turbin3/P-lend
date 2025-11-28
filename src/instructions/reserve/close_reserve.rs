@@ -47,13 +47,13 @@ pub fn process_close_reserve(
     let reserve_data = &mut reserve.try_borrow_mut_data()?;
     let reserve_state = bytemuck::from_bytes_mut::<ReserveState>(reserve_data);
 
-    // Check if already closed
-    if reserve_state.is_closed() {
-        return Err(ProgramError::AccountAlreadyInitialized);
-    }
-
     // Verify reserve belongs to this lending market
     if reserve_state.lending_market != *lending_market.key() {
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    // Check if reserve is already closed
+    if reserve_state.allow_deposits == 0 && reserve_state.allow_borrows == 0 {
         return Err(ProgramError::InvalidAccountData);
     }
 
@@ -67,7 +67,6 @@ pub fn process_close_reserve(
     }
 
     // Close the reserve permanently
-    reserve_state.is_closed = 1;
     reserve_state.is_active = 0;
     reserve_state.allow_deposits = 0;
     reserve_state.allow_borrows = 0;

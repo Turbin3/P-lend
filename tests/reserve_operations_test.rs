@@ -74,7 +74,6 @@ fn test_close_reserve_success() {
 
     // Verify state
     let reserve_state = ctx.reserve_state(&reserve_pubkey);
-    assert_eq!(reserve_state.is_closed(), true, "Reserve should be closed");
     assert_eq!(reserve_state.is_active, 0, "Reserve should be inactive");
 }
 
@@ -147,7 +146,7 @@ fn test_close_reserve_requires_owner() {
         .expect("Owner should be able to close");
     
     let reserve_state = ctx.reserve_state(&reserve_pubkey);
-    assert!(reserve_state.is_closed(), "Reserve should be closed");
+    assert_eq!(reserve_state.is_active, 0, "Reserve should be inactive");
 }
 
 #[test]
@@ -251,6 +250,5 @@ fn test_state_transitions() {
     let close_ix = ctx.build_close_reserve_instruction(&reserve_pubkey);
     ctx.send_instruction(vec![ctx.fee_payer.insecure_clone()], close_ix)
         .expect("Close should succeed");
-    assert!(ctx.reserve_state(&reserve_pubkey).is_closed());
     assert_eq!(ctx.reserve_state(&reserve_pubkey).is_active, 0);
 }

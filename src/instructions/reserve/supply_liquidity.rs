@@ -68,11 +68,6 @@ pub fn process_supply_liquidity(
         return Err(ProgramError::InvalidAccountData);
     }
 
-    // Check if reserve is closed
-    if reserve_state.is_closed() {
-        return Err(ProgramError::InvalidAccountData);
-    }
-
     // Check if deposits are allowed
     if !reserve_state.allows_deposits() {
         return Err(ProgramError::InvalidAccountData);

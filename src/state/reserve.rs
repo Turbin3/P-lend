@@ -28,7 +28,6 @@ pub struct ReserveState {
     pub is_active: u8,
     pub allow_deposits: u8,
     pub allow_borrows: u8,
-    pub is_closed: u8,
 }
 
 impl StateDefinition for ReserveState {
@@ -70,18 +69,12 @@ impl ReserveState {
             is_active: 1,
             allow_deposits: 1,
             allow_borrows: 1,
-            is_closed: 0,
         }
     }
 
     #[inline(always)]
     pub fn is_active(&self) -> bool {
         self.is_active == 1
-    }
-
-    #[inline(always)]
-    pub fn is_closed(&self) -> bool {
-        self.is_closed == 1
     }
 
     #[inline(always)]
