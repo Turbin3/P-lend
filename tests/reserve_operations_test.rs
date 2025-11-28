@@ -72,9 +72,9 @@ fn test_close_reserve_success() {
     ctx.send_instruction(vec![ctx.fee_payer.insecure_clone()], close_ix)
         .expect("Close should succeed");
 
-    // Verify state
-    let reserve_state = ctx.reserve_state(&reserve_pubkey);
-    assert_eq!(reserve_state.is_active, 0, "Reserve should be inactive");
+    // Verify account is actually closed (no longer exists)
+    let account = ctx.get_account(&reserve_pubkey);
+    assert!(account.is_none(), "Reserve account should be closed and no longer exist");
 }
 
 #[test]
@@ -145,8 +145,9 @@ fn test_close_reserve_requires_owner() {
     ctx.send_instruction(vec![ctx.fee_payer.insecure_clone()], close_ix)
         .expect("Owner should be able to close");
     
-    let reserve_state = ctx.reserve_state(&reserve_pubkey);
-    assert_eq!(reserve_state.is_active, 0, "Reserve should be inactive");
+    // Verify account is actually closed (no longer exists)
+    let account = ctx.get_account(&reserve_pubkey);
+    assert!(account.is_none(), "Reserve account should be closed and no longer exist");
 }
 
 #[test]
@@ -250,5 +251,8 @@ fn test_state_transitions() {
     let close_ix = ctx.build_close_reserve_instruction(&reserve_pubkey);
     ctx.send_instruction(vec![ctx.fee_payer.insecure_clone()], close_ix)
         .expect("Close should succeed");
-    assert_eq!(ctx.reserve_state(&reserve_pubkey).is_active, 0);
+    
+    // Verify account is actually closed (no longer exists)
+    let account = ctx.get_account(&reserve_pubkey);
+    assert!(account.is_none(), "Reserve account should be closed and no longer exist");
 }

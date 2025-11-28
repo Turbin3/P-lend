@@ -144,6 +144,10 @@ impl InitializedMarket {
         self.svm.get_account(vault_pubkey)
     }
 
+    pub fn get_account(&self, pubkey: &Pubkey) -> Option<solana_account::Account> {
+        self.svm.get_account(pubkey)
+    }
+
     pub fn verify_vault_created(&self, vault_pubkey: &Pubkey, expected_mint: &Pubkey) -> bool {
         if let Some(account) = self.svm.get_account(vault_pubkey) {
             account.lamports > 0
