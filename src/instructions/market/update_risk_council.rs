@@ -1,7 +1,4 @@
-use crate::helper::{
-    account_checks::check_signer,
-    utils::{ DataLen},
-};
+use crate::helper::{account_checks::check_signer, utils::DataLen};
 use crate::state::LendingMarketState;
 use bytemuck::{Pod, Zeroable};
 use pinocchio::{
